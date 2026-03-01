@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richards &amp; Law — Case Data Verification</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+        .header { background: #1a1a2e; color: white; padding: 20px 0; text-align: center; }
+        .header h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: 1px; }
+        .header p { font-size: 0.85rem; color: #a0a0b0; margin-top: 4px; }
+        .container { max-width: 720px; margin: 30px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 32px; margin-bottom: 20px; }
+        .card h2 { font-size: 1.1rem; color: #1a1a2e; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e8e8f0; }
+        .field-group { margin-bottom: 16px; }
+        .field-group label { display: block; font-size: 0.8rem; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .field-group input, .field-group textarea, .field-group select {
+            width: 100%; padding: 10px 12px; border: 1.5px solid #d0d0d8; border-radius: 8px;
+            font-size: 0.95rem; font-family: inherit; transition: border-color 0.2s;
+        }
+        .field-group input:focus, .field-group textarea:focus, .field-group select:focus {
+            outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+        }
+        .field-group textarea { resize: vertical; min-height: 80px; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .confidence { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .confidence.high { background: #dcfce7; color: #166534; }
+        .confidence.medium { background: #fef9c3; color: #854d0e; }
+        .confidence.low { background: #fee2e2; color: #991b1b; }
+        .case-id { font-size: 0.85rem; color: #666; margin-bottom: 16px; }
+        .btn { display: inline-block; padding: 12px 32px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+        .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
+        .actions { text-align: center; margin-top: 24px; }
+        .status-msg { text-align: center; padding: 20px; font-size: 1.1rem; display: none; }
+        .status-msg.success { color: #166534; background: #dcfce7; border-radius: 12px; }
+        .status-msg.error { color: #991b1b; background: #fee2e2; border-radius: 12px; }
+        .meta-info { font-size: 0.8rem; color: #888; text-align: center; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>RICHARDS &amp; LAW</h1>
+        <p>Paralegal Case Data Verification</p>
+    </div>
+
+    <div class="container">
+        <div id="loading" class="card" style="text-align:center; padding:60px;">
+            <p>Loading case data...</p>
+        </div>
+
+        <form id="verifyForm" style="display:none;" onsubmit="return submitVerification(event)">
+            <div class="card">
+                <h2>Client Information</h2>
+                <div class="case-id">Case ID: <strong id="displayCaseId"></strong> &nbsp;|&nbsp; Confidence: <span id="displayConfidence" class="confidence"></span></div>
+                <div class="row">
+                    <div class="field-group">
+                        <label>Client Full Name</label>
+                        <input type="text" id="client_name" required>
+                    </div>
+                    <div class="field-group">
+                        <label>Client Gender</label>
+                        <select id="client_sex" required>
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Accident Details</h2>
+                <div class="row">
+                    <div class="field-group">
+                        <label>Date of Accident</label>
+                        <input type="date" id="date_of_accident" required>
+                    </div>
+                    <div class="field-group">
+                        <label>Defendant Name</label>
+                        <input type="text" id="defendant_name" required>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>Accident Location</label>
+                    <input type="text" id="accident_location" required>
+                </div>
+                <div class="row">
+                    <div class="field-group">
+                        <label>Client Vehicle Plate</label>
+                        <input type="text" id="registration_plate">
+                    </div>
+                    <div class="field-group">
+                        <label>Number of Injured</label>
+                        <input type="number" id="number_of_injured" min="0" required>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>Accident Description</label>
+                    <textarea id="accident_description" rows="3"></textarea>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Computed Fields (Auto-calculated)</h2>
+                <div class="row">
+                    <div class="field-group">
+                        <label>Statute of Limitations Date</label>
+                        <input type="date" id="sol_date" readonly style="background:#f0f2f5;">
+                    </div>
+                    <div class="field-group">
+                        <label>Matter ID</label>
+                        <input type="text" id="matter_id" readonly style="background:#f0f2f5;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" class="btn btn-primary" id="submitBtn">Verify &amp; Submit to Clio</button>
+            </div>
+
+            <!-- Hidden fields -->
+            <input type="hidden" id="case_id">
+            <input type="hidden" id="resume_url">
+            <input type="hidden" id="confidence_score">
+        </form>
+
+        <div id="statusMsg" class="status-msg"></div>
+        <p class="meta-info">Richards &amp; Law Automated Intake System &bull; Powered by AugmentLoop</p>
+    </div>
+
+    <script>
+        // Parse URL params
+        const params = new URLSearchParams(window.location.search);
+        const encodedData = params.get('data');
+        const resumeUrl = params.get('resumeUrl');
+
+        if (encodedData && resumeUrl) {
+            try {
+                const data = JSON.parse(atob(encodedData));
+                document.getElementById('resume_url').value = resumeUrl;
+
+                // Fill form fields
+                document.getElementById('case_id').value = data.case_id || '';
+                document.getElementById('displayCaseId').textContent = data.case_id || 'N/A';
+                document.getElementById('client_name').value = data.client_name || '';
+                document.getElementById('client_sex').value = data.client_sex || 'M';
+                document.getElementById('date_of_accident').value = data.date_of_accident || '';
+                document.getElementById('defendant_name').value = data.defendant_name || '';
+                document.getElementById('accident_location').value = data.accident_location || '';
+                document.getElementById('registration_plate').value = data.registration_plate || '';
+                document.getElementById('number_of_injured').value = data.number_of_injured || '0';
+                document.getElementById('accident_description').value = data.accident_description || '';
+                document.getElementById('matter_id').value = data.matter_id || '';
+                document.getElementById('confidence_score').value = data.confidence_score || '';
+
+                // Confidence badge
+                const score = parseInt(data.confidence_score) || 0;
+                const confEl = document.getElementById('displayConfidence');
+                confEl.textContent = score + '/10';
+                confEl.className = 'confidence ' + (score >= 8 ? 'high' : score >= 6 ? 'medium' : 'low');
+
+                // Compute SOL (accident date + 8 years)
+                computeSOL();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('verifyForm').style.display = 'block';
+            } catch (e) {
+                document.getElementById('loading').innerHTML = '<p style="color:#991b1b;">Error parsing case data. Please check the link.</p>';
+            }
+        } else {
+            document.getElementById('loading').innerHTML = '<p style="color:#991b1b;">No case data found. Please use the verification link from your email.</p>';
+        }
+
+        // Auto-compute SOL when date changes
+        document.getElementById('date_of_accident').addEventListener('change', computeSOL);
+
+        function computeSOL() {
+            const dateStr = document.getElementById('date_of_accident').value;
+            if (dateStr) {
+                const d = new Date(dateStr);
+                d.setFullYear(d.getFullYear() + 8);
+                document.getElementById('sol_date').value = d.toISOString().split('T')[0];
+            }
+        }
+
+        async function submitVerification(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+
+            const payload = {
+                case_id: document.getElementById('case_id').value,
+                client_name: document.getElementById('client_name').value,
+                client_sex: document.getElementById('client_sex').value,
+                date_of_accident: document.getElementById('date_of_accident').value,
+                defendant_name: document.getElementById('defendant_name').value,
+                accident_location: document.getElementById('accident_location').value,
+                registration_plate: document.getElementById('registration_plate').value,
+                number_of_injured: document.getElementById('number_of_injured').value,
+                accident_description: document.getElementById('accident_description').value,
+                sol_date: document.getElementById('sol_date').value,
+                matter_id: document.getElementById('matter_id').value,
+                confidence_score: document.getElementById('confidence_score').value,
+                verified: true,
+                verified_at: new Date().toISOString()
+            };
+
+            const url = document.getElementById('resume_url').value;
+
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (resp.ok) {
+                    document.getElementById('verifyForm').style.display = 'none';
+                    const msg = document.getElementById('statusMsg');
+                    msg.className = 'status-msg success';
+                    msg.style.display = 'block';
+                    msg.innerHTML = '<strong>Verification submitted successfully!</strong><br>The case data has been sent to Clio for processing. You can close this tab.';
+                } else {
+                    throw new Error('Server returned ' + resp.status);
+                }
+            } catch (err) {
+                const msg = document.getElementById('statusMsg');
+                msg.className = 'status-msg error';
+                msg.style.display = 'block';
+                msg.innerHTML = '<strong>Submission failed:</strong> ' + err.message + '<br>Please try again or contact support.';
+                btn.disabled = false;
+                btn.textContent = 'Verify & Submit to Clio';
+            }
+        }
+    </script>
+</body>
+</html>
