@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Richards &amp; Law - Police Report Intake</title>
+    <!-- F8: Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x2696;</text></svg>">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
@@ -15,6 +17,9 @@
         .card h2 { font-size: 1.1rem; color: #1a1a2e; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e8e8f0; }
         .field-group { margin-bottom: 16px; }
         .field-group label { display: block; font-size: 0.8rem; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .field-group .required-star { color: #dc2626; margin-left: 2px; }
+        .field-group .optional-tag { font-weight: 400; color: #999; text-transform: none; font-size: 0.75rem; letter-spacing: 0; }
+        .field-group .helper-text { font-size: 0.75rem; color: #888; font-weight: 400; margin-top: 3px; text-transform: none; letter-spacing: 0; }
         .field-group input, .field-group textarea, .field-group select {
             width: 100%; padding: 10px 12px; border: 1.5px solid #d0d0d8; border-radius: 8px;
             font-size: 0.95rem; font-family: inherit; transition: border-color 0.2s;
@@ -36,6 +41,8 @@
         .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
         .btn-secondary { background: #e2e8f0; color: #1a1a2e; }
         .btn-secondary:hover { background: #cbd5e1; }
+        .btn-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .btn-danger:hover { background: #fecaca; }
         .actions { text-align: center; margin-top: 24px; }
         .status-msg { text-align: center; padding: 20px; font-size: 1.1rem; display: none; border-radius: 12px; }
         .status-msg.success { color: #166534; background: #dcfce7; }
@@ -47,15 +54,42 @@
         .file-upload { border: 2px dashed #d0d0d8; border-radius: 8px; padding: 32px 24px; text-align: center; cursor: pointer; transition: all 0.2s; }
         .file-upload:hover { border-color: #2563eb; background: #f8fafc; }
         .file-upload.has-file { border-color: #16a34a; background: #f0fdf4; }
+        .file-upload.drag-over { border-color: #2563eb; background: #eff6ff; border-width: 3px; }
         .file-upload-icon { font-size: 2rem; margin-bottom: 8px; }
         .file-upload-text { font-size: 0.9rem; color: #666; }
-        .file-upload-name { font-size: 0.85rem; color: #16a34a; font-weight: 600; margin-top: 8px; }
+        .file-upload-name { font-size: 0.85rem; color: #16a34a; font-weight: 600; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .file-remove { cursor: pointer; color: #991b1b; font-size: 0.75rem; background: #fee2e2; border: none; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+        .file-remove:hover { background: #fecaca; }
+        .file-size-warning { font-size: 0.8rem; color: #854d0e; margin-top: 6px; }
+        .file-size-error { font-size: 0.8rem; color: #991b1b; margin-top: 6px; }
 
         /* Processing spinner */
         .spinner { width: 48px; height: 48px; border: 4px solid #e8e8f0; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .processing-text { font-size: 1.1rem; color: #1a1a2e; font-weight: 600; }
         .processing-sub { font-size: 0.85rem; color: #888; margin-top: 8px; }
+        .processing-slow { display: none; margin-top: 20px; }
+        .processing-slow.visible { display: block; }
+        .processing-slow p { font-size: 0.9rem; color: #854d0e; margin-bottom: 12px; }
+
+        /* F6: Confirmation overlay */
+        .confirm-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+        .confirm-overlay.visible { display: flex; }
+        .confirm-box { background: white; border-radius: 12px; padding: 32px; max-width: 420px; width: 90%; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+        .confirm-box h3 { font-size: 1.1rem; margin-bottom: 12px; color: #1a1a2e; }
+        .confirm-box p { font-size: 0.9rem; color: #666; margin-bottom: 24px; }
+        .confirm-actions { display: flex; gap: 12px; justify-content: center; }
+
+        /* F1: Mobile responsive */
+        @media (max-width: 600px) {
+            .row { grid-template-columns: 1fr; gap: 12px; }
+            .card { padding: 20px; }
+            .container { padding: 0 12px; margin: 16px auto; }
+            .header h1 { font-size: 1.25rem; }
+            .btn { width: 100%; padding: 14px 24px; }
+            .confirm-actions { flex-direction: column; }
+            .confirm-actions .btn { width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -71,19 +105,24 @@
             <div class="card">
                 <h2>Upload Police Report</h2>
                 <div class="field-group">
-                    <label>Client Full Name</label>
+                    <label>Client Full Name <span class="required-star">*</span></label>
                     <input type="text" id="upload_client_name" required placeholder="e.g. REYES, GUILLERMO">
                 </div>
                 <div class="field-group">
-                    <label>Clio Matter ID</label>
+                    <label>Clio Matter ID <span class="required-star">*</span></label>
                     <input type="text" id="upload_matter_id" required placeholder="e.g. 1862236145">
+                    <p class="helper-text">Enter the numeric Clio Matter ID for this case</p>
                 </div>
                 <div class="field-group">
-                    <label>Police Report PDF</label>
-                    <div class="file-upload" id="fileUploadArea" onclick="document.getElementById('upload_pdf').click()">
+                    <label>Police Report PDF <span class="required-star">*</span></label>
+                    <div class="file-upload" id="fileUploadArea">
                         <div class="file-upload-icon">&#128196;</div>
-                        <div class="file-upload-text">Click to select a PDF file</div>
-                        <div class="file-upload-name" id="fileName" style="display:none;"></div>
+                        <div class="file-upload-text">Click or drag a PDF file here</div>
+                        <div class="file-upload-name" id="fileName" style="display:none;">
+                            <span id="fileNameText"></span>
+                            <button type="button" class="file-remove" id="fileRemoveBtn" onclick="clearFile(event)" title="Remove file">&#x2715;</button>
+                        </div>
+                        <div id="fileSizeMsg"></div>
                     </div>
                     <input type="file" id="upload_pdf" accept=".pdf" required style="display:none;" onchange="handleFileSelect(this)">
                 </div>
@@ -94,14 +133,18 @@
         </form>
 
         <!-- Processing State -->
-        <div id="processing" class="card" style="display:none; text-align:center; padding:60px 32px;">
+        <div id="processing" class="card" style="display:none; text-align:center; padding:60px 32px;" role="status" aria-live="polite">
             <div class="spinner"></div>
             <p class="processing-text">Processing police report with AI...</p>
             <p class="processing-sub">This usually takes 10-15 seconds</p>
+            <div class="processing-slow" id="processingSlow">
+                <p>Processing is taking longer than expected...</p>
+                <button type="button" class="btn btn-secondary" onclick="cancelProcessing()">Cancel &amp; Try Again</button>
+            </div>
         </div>
 
         <!-- Step 2: Verification Form -->
-        <form id="verifyForm" style="display:none;" onsubmit="return submitVerification(event)">
+        <form id="verifyForm" style="display:none;" onsubmit="return handleVerifySubmit(event)">
             <p class="step-indicator" id="verifyStepIndicator">Step 2 of 2: Verify Extracted Data</p>
             <div class="card">
                 <h2>Client Information</h2>
@@ -109,11 +152,11 @@
                 <p class="confidence-notes" id="displayConfidenceNotes"></p>
                 <div class="row">
                     <div class="field-group">
-                        <label>Client Full Name</label>
+                        <label>Client Full Name <span class="required-star">*</span></label>
                         <input type="text" id="client_name" required>
                     </div>
                     <div class="field-group">
-                        <label>Client Gender</label>
+                        <label>Client Gender <span class="required-star">*</span></label>
                         <select id="client_sex" required>
                             <option value="M">Male</option>
                             <option value="F">Female</option>
@@ -126,44 +169,45 @@
                 <h2>Accident Details</h2>
                 <div class="row">
                     <div class="field-group">
-                        <label>Date of Accident</label>
+                        <label>Date of Accident <span class="required-star">*</span></label>
                         <input type="date" id="date_of_accident" required>
                     </div>
                     <div class="field-group">
-                        <label>Defendant Name</label>
+                        <label>Defendant Name <span class="required-star">*</span></label>
                         <input type="text" id="defendant_name" required>
                     </div>
                 </div>
                 <div class="field-group">
-                    <label>Accident Location</label>
+                    <label>Accident Location <span class="required-star">*</span></label>
                     <input type="text" id="accident_location" required>
                 </div>
                 <div class="row">
                     <div class="field-group">
-                        <label>Client Vehicle Plate</label>
+                        <label>Client Vehicle Plate <span class="optional-tag">(Optional)</span></label>
                         <input type="text" id="client_vehicle_plate">
                     </div>
                     <div class="field-group">
-                        <label>Number of Injured</label>
+                        <label>Number of Injured <span class="required-star">*</span></label>
                         <input type="number" id="number_of_injured" min="0" required>
                     </div>
                 </div>
                 <div class="field-group">
-                    <label>Accident Description</label>
+                    <label>Accident Description <span class="optional-tag">(Optional)</span></label>
                     <textarea id="accident_description" rows="3"></textarea>
                 </div>
             </div>
 
             <div class="card">
-                <h2>Computed Fields (Auto-calculated)</h2>
+                <h2>Computed Fields</h2>
                 <div class="row">
                     <div class="field-group">
                         <label>Statute of Limitations Date</label>
-                        <input type="date" id="sol_date" readonly style="background:#f0f2f5;">
+                        <input type="date" id="sol_date" readonly style="background:#f0f2f5;" aria-readonly="true">
+                        <p class="helper-text">Auto-calculated: accident date + 8 years (NY statute)</p>
                     </div>
                     <div class="field-group">
                         <label>Matter ID</label>
-                        <input type="text" id="matter_id" readonly style="background:#f0f2f5;">
+                        <input type="text" id="matter_id" readonly style="background:#f0f2f5;" aria-readonly="true">
                     </div>
                 </div>
             </div>
@@ -178,15 +222,53 @@
             <input type="hidden" id="confidence_score">
         </form>
 
-        <div id="statusMsg" class="status-msg"></div>
+        <div id="statusMsg" class="status-msg" role="alert"></div>
         <p class="meta-info">Richards &amp; Law Automated Intake System &bull; Powered by AugmentLoop</p>
+    </div>
+
+    <!-- F6: Confirmation Dialog -->
+    <div id="confirmOverlay" class="confirm-overlay">
+        <div class="confirm-box">
+            <h3>Submit to Clio?</h3>
+            <p>This will update the matter in Clio, generate the retainer agreement, and email the client. This action cannot be undone.</p>
+            <div class="confirm-actions">
+                <button type="button" class="btn btn-primary" id="confirmSubmitBtn" onclick="confirmSubmit()">Yes, Submit</button>
+                <button type="button" class="btn btn-secondary" onclick="cancelConfirm()">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <script>
         const WEBHOOK_URL = '/api/webhook/police-intake';
+        const UPLOAD_TIMEOUT_MS = 60000;
+        const VERIFY_TIMEOUT_MS = 30000;
+        const SLOW_PROCESSING_MS = 60000;
+        let processingTimer = null;
+        let uploadController = null;
+        let currentState = 'upload';
+
+        // --- F4: HTML escaping to prevent XSS ---
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // --- F11: Friendly error messages ---
+        function friendlyError(err) {
+            if (err.name === 'AbortError') return 'The request timed out. Please check your connection and try again.';
+            const msg = err.message || '';
+            if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return 'Unable to reach the server. Please check your internet connection and try again.';
+            if (msg.includes('413')) return 'The file is too large for the server to process. Please use a smaller PDF.';
+            if (msg.includes('500')) return 'The server encountered an error. Please try again in a moment.';
+            if (msg.includes('502') || msg.includes('503')) return 'The server is temporarily unavailable. Please try again in a moment.';
+            if (msg.includes('404')) return 'The server endpoint was not found. Please contact support.';
+            return msg;
+        }
 
         // --- State Management ---
         function showState(state) {
+            currentState = state;
             document.getElementById('uploadForm').style.display = state === 'upload' ? 'block' : 'none';
             document.getElementById('processing').style.display = state === 'processing' ? 'block' : 'none';
             document.getElementById('verifyForm').style.display = state === 'verify' ? 'block' : 'none';
@@ -194,6 +276,29 @@
             if (state !== 'success' && state !== 'error') {
                 statusMsg.style.display = 'none';
             }
+
+            // F15: Focus management
+            requestAnimationFrame(function() {
+                if (state === 'upload') {
+                    var el = document.getElementById('upload_client_name');
+                    if (el) el.focus();
+                } else if (state === 'verify') {
+                    var el = document.getElementById('client_name');
+                    if (el) el.focus();
+                }
+            });
+
+            // F17: Beforeunload warning
+            if (state === 'processing' || state === 'verify') {
+                window.addEventListener('beforeunload', beforeUnloadHandler);
+            } else {
+                window.removeEventListener('beforeunload', beforeUnloadHandler);
+            }
+        }
+
+        function beforeUnloadHandler(e) {
+            e.preventDefault();
+            e.returnValue = '';
         }
 
         function showError(message) {
@@ -201,21 +306,81 @@
             const msg = document.getElementById('statusMsg');
             msg.className = 'status-msg error';
             msg.style.display = 'block';
-            msg.innerHTML = '<strong>Error:</strong> ' + message + '<br><br><button class="btn btn-secondary" onclick="resetForm()">Try Again</button>';
+            msg.innerHTML = '<strong>Error:</strong> ' + escapeHtml(message) + '<br><br><button class="btn btn-secondary" onclick="resetForm()">Try Again</button>';
         }
 
-        // --- File Upload UI ---
+        // --- F7: Drag-and-drop + File Upload UI ---
+        function setupDragDrop() {
+            const area = document.getElementById('fileUploadArea');
+            area.addEventListener('click', function() {
+                document.getElementById('upload_pdf').click();
+            });
+            area.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                area.classList.add('drag-over');
+            });
+            area.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                area.classList.remove('drag-over');
+            });
+            area.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                area.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const input = document.getElementById('upload_pdf');
+                    // Set the file via DataTransfer
+                    const dt = new DataTransfer();
+                    dt.items.add(files[0]);
+                    input.files = dt.files;
+                    handleFileSelect(input);
+                }
+            });
+        }
+
         function handleFileSelect(input) {
             const area = document.getElementById('fileUploadArea');
             const nameEl = document.getElementById('fileName');
+            const nameText = document.getElementById('fileNameText');
+            const sizeMsg = document.getElementById('fileSizeMsg');
+            sizeMsg.innerHTML = '';
+
             if (input.files.length > 0) {
+                const file = input.files[0];
+
+                // F10: File size check
+                const sizeMB = file.size / (1024 * 1024);
+                if (sizeMB > 25) {
+                    sizeMsg.innerHTML = '<p class="file-size-error">File is too large (' + sizeMB.toFixed(1) + ' MB). Maximum size is 25 MB.</p>';
+                    input.value = '';
+                    area.classList.remove('has-file');
+                    nameEl.style.display = 'none';
+                    return;
+                }
+                if (sizeMB > 10) {
+                    sizeMsg.innerHTML = '<p class="file-size-warning">Large file (' + sizeMB.toFixed(1) + ' MB). Upload may take longer than usual.</p>';
+                }
+
                 area.classList.add('has-file');
-                nameEl.textContent = input.files[0].name;
-                nameEl.style.display = 'block';
+                nameText.textContent = file.name;
+                nameEl.style.display = 'flex';
             } else {
                 area.classList.remove('has-file');
                 nameEl.style.display = 'none';
             }
+        }
+
+        // F18: Clear file selection
+        function clearFile(e) {
+            e.stopPropagation();
+            const input = document.getElementById('upload_pdf');
+            input.value = '';
+            document.getElementById('fileUploadArea').classList.remove('has-file');
+            document.getElementById('fileName').style.display = 'none';
+            document.getElementById('fileSizeMsg').innerHTML = '';
         }
 
         // --- Step 1: Upload Handler ---
@@ -225,24 +390,47 @@
             btn.disabled = true;
             showState('processing');
 
+            // F3: Show slow processing message after timeout
+            document.getElementById('processingSlow').classList.remove('visible');
+            processingTimer = setTimeout(function() {
+                document.getElementById('processingSlow').classList.add('visible');
+            }, SLOW_PROCESSING_MS);
+
             const formData = new FormData();
             formData.append('client_name', document.getElementById('upload_client_name').value.trim());
             formData.append('matter_id', document.getElementById('upload_matter_id').value.trim());
             formData.append('police_report', document.getElementById('upload_pdf').files[0]);
 
+            // F2: Fetch with timeout
+            uploadController = new AbortController();
+            const timeoutId = setTimeout(function() { uploadController.abort(); }, UPLOAD_TIMEOUT_MS);
+
             try {
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    signal: uploadController.signal
                 });
+                clearTimeout(timeoutId);
+                clearTimeout(processingTimer);
                 if (!response.ok) throw new Error('Server returned ' + response.status);
                 const data = await response.json();
                 populateVerificationForm(data);
                 showState('verify');
             } catch (err) {
+                clearTimeout(timeoutId);
+                clearTimeout(processingTimer);
                 btn.disabled = false;
-                showError('Upload failed: ' + err.message);
+                showError(friendlyError(err));
             }
+        }
+
+        // F3: Cancel processing
+        function cancelProcessing() {
+            if (uploadController) uploadController.abort();
+            clearTimeout(processingTimer);
+            document.getElementById('uploadBtn').disabled = false;
+            showError('Processing was cancelled. You can try uploading again.');
         }
 
         // --- Populate Verification Form ---
@@ -282,10 +470,10 @@
                 confEl.className = 'confidence low';
             }
 
-            // Confidence notes
+            // F19: Confidence notes - always show section
             const notesEl = document.getElementById('displayConfidenceNotes');
-            notesEl.textContent = data.confidence_notes || '';
-            notesEl.style.display = data.confidence_notes ? 'block' : 'none';
+            notesEl.textContent = data.confidence_notes || 'No additional notes';
+            notesEl.style.display = 'block';
 
             computeSOL();
         }
@@ -294,33 +482,43 @@
         function computeSOL() {
             const dateStr = document.getElementById('date_of_accident').value;
             if (dateStr) {
-                const d = new Date(dateStr);
-                d.setFullYear(d.getFullYear() + 8);
-                document.getElementById('sol_date').value = d.toISOString().split('T')[0];
+                const parts = dateStr.split('-');
+                const year = parseInt(parts[0]) + 8;
+                document.getElementById('sol_date').value = year + '-' + parts[1] + '-' + parts[2];
             }
         }
 
         document.getElementById('date_of_accident').addEventListener('change', computeSOL);
 
-        // --- Step 2: Submit Verification ---
-        async function submitVerification(e) {
+        // --- F6: Submit with confirmation ---
+        function handleVerifySubmit(e) {
             e.preventDefault();
+            document.getElementById('confirmOverlay').classList.add('visible');
+        }
+
+        function cancelConfirm() {
+            document.getElementById('confirmOverlay').classList.remove('visible');
+        }
+
+        async function confirmSubmit() {
+            document.getElementById('confirmOverlay').classList.remove('visible');
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.textContent = 'Submitting...';
 
+            // F12: Trim all text inputs
             const payload = {
-                case_id: document.getElementById('case_id').value,
-                client_name: document.getElementById('client_name').value,
+                case_id: document.getElementById('case_id').value.trim(),
+                client_name: document.getElementById('client_name').value.trim(),
                 client_sex: document.getElementById('client_sex').value,
                 date_of_accident: document.getElementById('date_of_accident').value,
-                defendant_name: document.getElementById('defendant_name').value,
-                accident_location: document.getElementById('accident_location').value,
-                client_vehicle_plate: document.getElementById('client_vehicle_plate').value,
+                defendant_name: document.getElementById('defendant_name').value.trim(),
+                accident_location: document.getElementById('accident_location').value.trim(),
+                client_vehicle_plate: document.getElementById('client_vehicle_plate').value.trim(),
                 number_of_injured: document.getElementById('number_of_injured').value,
-                accident_description: document.getElementById('accident_description').value,
+                accident_description: document.getElementById('accident_description').value.trim(),
                 sol_date: document.getElementById('sol_date').value,
-                matter_id: document.getElementById('matter_id').value,
+                matter_id: document.getElementById('matter_id').value.trim(),
                 confidence_score: document.getElementById('confidence_score').value,
                 verified: true,
                 verified_at: new Date().toISOString()
@@ -328,12 +526,18 @@
 
             const url = document.getElementById('resume_url').value;
 
+            // F2: Fetch with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(function() { controller.abort(); }, VERIFY_TIMEOUT_MS);
+
             try {
                 const resp = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
 
                 if (resp.ok) {
                     document.getElementById('verifyForm').style.display = 'none';
@@ -341,14 +545,16 @@
                     msg.className = 'status-msg success';
                     msg.style.display = 'block';
                     msg.innerHTML = '<strong>Verification submitted successfully!</strong><br>The case data has been sent to Clio for processing. The retainer agreement will be generated and emailed to the client automatically.<br><br><button class="btn btn-primary" onclick="resetForm()">Process Another Report</button>';
+                    window.removeEventListener('beforeunload', beforeUnloadHandler);
                 } else {
                     throw new Error('Server returned ' + resp.status);
                 }
             } catch (err) {
+                clearTimeout(timeoutId);
                 const msg = document.getElementById('statusMsg');
                 msg.className = 'status-msg error';
                 msg.style.display = 'block';
-                msg.innerHTML = '<strong>Submission failed:</strong> ' + err.message + '<br>Please try again or contact support.';
+                msg.innerHTML = '<strong>Submission failed:</strong> ' + escapeHtml(friendlyError(err)) + '<br>Please try again or contact support.';
                 btn.disabled = false;
                 btn.textContent = 'Verify & Submit to Clio';
             }
@@ -361,6 +567,7 @@
             document.getElementById('upload_pdf').value = '';
             document.getElementById('fileUploadArea').classList.remove('has-file');
             document.getElementById('fileName').style.display = 'none';
+            document.getElementById('fileSizeMsg').innerHTML = '';
             document.getElementById('uploadBtn').disabled = false;
             document.getElementById('submitBtn').disabled = false;
             document.getElementById('submitBtn').textContent = 'Verify & Submit to Clio';
@@ -369,6 +576,13 @@
 
         // --- Page Init ---
         (function init() {
+            // F7: Setup drag-and-drop
+            setupDragDrop();
+
+            // F9: Block future dates
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date_of_accident').setAttribute('max', today);
+
             const params = new URLSearchParams(window.location.search);
             const encodedData = params.get('data');
             const resumeUrlParam = params.get('resumeUrl');
