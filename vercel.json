@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/webhook/:path*",
+      "destination": "https://augmentloop.app.n8n.cloud/webhook/:path*"
+    }
+  ]
+}
