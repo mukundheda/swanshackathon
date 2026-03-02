@@ -3,6 +3,10 @@
     {
       "source": "/api/webhook/:path*",
       "destination": "https://augmentloop.app.n8n.cloud/webhook/:path*"
+    },
+    {
+      "source": "/api/webhook-waiting/:path*",
+      "destination": "https://augmentloop.app.n8n.cloud/webhook-waiting/:path*"
     }
   ]
 }

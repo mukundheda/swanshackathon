@@ -247,7 +247,13 @@
 
         // --- Populate Verification Form ---
         function populateVerificationForm(data) {
-            document.getElementById('resume_url').value = data.resumeUrl || '';
+            // Transform n8n Cloud URL to use Vercel proxy to avoid CORS
+            let resumeUrl = data.resumeUrl || '';
+            if (resumeUrl.includes('webhook-waiting')) {
+                const execId = resumeUrl.split('/webhook-waiting/')[1];
+                resumeUrl = '/api/webhook-waiting/' + execId;
+            }
+            document.getElementById('resume_url').value = resumeUrl;
             document.getElementById('case_id').value = data.case_id || '';
             document.getElementById('displayCaseId').textContent = data.case_id || 'N/A';
 
