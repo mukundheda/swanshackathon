@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Richards &amp; Law — Case Data Verification</title>
+    <title>Richards &amp; Law - Police Report Intake</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
@@ -28,33 +28,85 @@
         .confidence.high { background: #dcfce7; color: #166534; }
         .confidence.medium { background: #fef9c3; color: #854d0e; }
         .confidence.low { background: #fee2e2; color: #991b1b; }
+        .confidence-notes { font-size: 0.8rem; color: #666; font-style: italic; margin-top: 6px; }
         .case-id { font-size: 0.85rem; color: #666; margin-bottom: 16px; }
         .btn { display: inline-block; padding: 12px 32px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
         .btn-primary { background: #2563eb; color: white; }
         .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
         .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-secondary { background: #e2e8f0; color: #1a1a2e; }
+        .btn-secondary:hover { background: #cbd5e1; }
         .actions { text-align: center; margin-top: 24px; }
-        .status-msg { text-align: center; padding: 20px; font-size: 1.1rem; display: none; }
-        .status-msg.success { color: #166534; background: #dcfce7; border-radius: 12px; }
-        .status-msg.error { color: #991b1b; background: #fee2e2; border-radius: 12px; }
+        .status-msg { text-align: center; padding: 20px; font-size: 1.1rem; display: none; border-radius: 12px; }
+        .status-msg.success { color: #166534; background: #dcfce7; }
+        .status-msg.error { color: #991b1b; background: #fee2e2; }
         .meta-info { font-size: 0.8rem; color: #888; text-align: center; margin-top: 16px; }
+        .step-indicator { font-size: 0.85rem; color: #2563eb; margin-bottom: 12px; font-weight: 600; }
+
+        /* File upload area */
+        .file-upload { border: 2px dashed #d0d0d8; border-radius: 8px; padding: 32px 24px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .file-upload:hover { border-color: #2563eb; background: #f8fafc; }
+        .file-upload.has-file { border-color: #16a34a; background: #f0fdf4; }
+        .file-upload-icon { font-size: 2rem; margin-bottom: 8px; }
+        .file-upload-text { font-size: 0.9rem; color: #666; }
+        .file-upload-name { font-size: 0.85rem; color: #16a34a; font-weight: 600; margin-top: 8px; }
+
+        /* Processing spinner */
+        .spinner { width: 48px; height: 48px; border: 4px solid #e8e8f0; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .processing-text { font-size: 1.1rem; color: #1a1a2e; font-weight: 600; }
+        .processing-sub { font-size: 0.85rem; color: #888; margin-top: 8px; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>RICHARDS &amp; LAW</h1>
-        <p>Paralegal Case Data Verification</p>
+        <p>Police Report Intake System</p>
     </div>
 
     <div class="container">
-        <div id="loading" class="card" style="text-align:center; padding:60px;">
-            <p>Loading case data...</p>
+        <!-- Step 1: Upload Form -->
+        <form id="uploadForm" style="display:none;" onsubmit="return handleUpload(event)">
+            <p class="step-indicator" id="stepIndicator">Step 1 of 2: Upload Police Report</p>
+            <div class="card">
+                <h2>Upload Police Report</h2>
+                <div class="field-group">
+                    <label>Client Full Name</label>
+                    <input type="text" id="upload_client_name" required placeholder="e.g. REYES, GUILLERMO">
+                </div>
+                <div class="field-group">
+                    <label>Clio Matter ID</label>
+                    <input type="text" id="upload_matter_id" required placeholder="e.g. 1862236145">
+                </div>
+                <div class="field-group">
+                    <label>Police Report PDF</label>
+                    <div class="file-upload" id="fileUploadArea" onclick="document.getElementById('upload_pdf').click()">
+                        <div class="file-upload-icon">&#128196;</div>
+                        <div class="file-upload-text">Click to select a PDF file</div>
+                        <div class="file-upload-name" id="fileName" style="display:none;"></div>
+                    </div>
+                    <input type="file" id="upload_pdf" accept=".pdf" required style="display:none;" onchange="handleFileSelect(this)">
+                </div>
+            </div>
+            <div class="actions">
+                <button type="submit" class="btn btn-primary" id="uploadBtn">Upload &amp; Process</button>
+            </div>
+        </form>
+
+        <!-- Processing State -->
+        <div id="processing" class="card" style="display:none; text-align:center; padding:60px 32px;">
+            <div class="spinner"></div>
+            <p class="processing-text">Processing police report with AI...</p>
+            <p class="processing-sub">This usually takes 10-15 seconds</p>
         </div>
 
+        <!-- Step 2: Verification Form -->
         <form id="verifyForm" style="display:none;" onsubmit="return submitVerification(event)">
+            <p class="step-indicator" id="verifyStepIndicator">Step 2 of 2: Verify Extracted Data</p>
             <div class="card">
                 <h2>Client Information</h2>
                 <div class="case-id">Case ID: <strong id="displayCaseId"></strong> &nbsp;|&nbsp; Confidence: <span id="displayConfidence" class="confidence"></span></div>
+                <p class="confidence-notes" id="displayConfidenceNotes"></p>
                 <div class="row">
                     <div class="field-group">
                         <label>Client Full Name</label>
@@ -89,7 +141,7 @@
                 <div class="row">
                     <div class="field-group">
                         <label>Client Vehicle Plate</label>
-                        <input type="text" id="registration_plate">
+                        <input type="text" id="client_vehicle_plate">
                     </div>
                     <div class="field-group">
                         <label>Number of Injured</label>
@@ -131,51 +183,108 @@
     </div>
 
     <script>
-        // Parse URL params
-        const params = new URLSearchParams(window.location.search);
-        const encodedData = params.get('data');
-        const resumeUrl = params.get('resumeUrl');
+        const WEBHOOK_URL = 'https://augmentloop.app.n8n.cloud/webhook/police-intake';
 
-        if (encodedData && resumeUrl) {
-            try {
-                const data = JSON.parse(atob(encodedData));
-                document.getElementById('resume_url').value = resumeUrl;
-
-                // Fill form fields
-                document.getElementById('case_id').value = data.case_id || '';
-                document.getElementById('displayCaseId').textContent = data.case_id || 'N/A';
-                document.getElementById('client_name').value = data.client_name || '';
-                document.getElementById('client_sex').value = data.client_sex || 'M';
-                document.getElementById('date_of_accident').value = data.date_of_accident || '';
-                document.getElementById('defendant_name').value = data.defendant_name || '';
-                document.getElementById('accident_location').value = data.accident_location || '';
-                document.getElementById('registration_plate').value = data.registration_plate || '';
-                document.getElementById('number_of_injured').value = data.number_of_injured || '0';
-                document.getElementById('accident_description').value = data.accident_description || '';
-                document.getElementById('matter_id').value = data.matter_id || '';
-                document.getElementById('confidence_score').value = data.confidence_score || '';
-
-                // Confidence badge
-                const score = parseInt(data.confidence_score) || 0;
-                const confEl = document.getElementById('displayConfidence');
-                confEl.textContent = score + '/10';
-                confEl.className = 'confidence ' + (score >= 8 ? 'high' : score >= 6 ? 'medium' : 'low');
-
-                // Compute SOL (accident date + 8 years)
-                computeSOL();
-
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('verifyForm').style.display = 'block';
-            } catch (e) {
-                document.getElementById('loading').innerHTML = '<p style="color:#991b1b;">Error parsing case data. Please check the link.</p>';
+        // --- State Management ---
+        function showState(state) {
+            document.getElementById('uploadForm').style.display = state === 'upload' ? 'block' : 'none';
+            document.getElementById('processing').style.display = state === 'processing' ? 'block' : 'none';
+            document.getElementById('verifyForm').style.display = state === 'verify' ? 'block' : 'none';
+            const statusMsg = document.getElementById('statusMsg');
+            if (state !== 'success' && state !== 'error') {
+                statusMsg.style.display = 'none';
             }
-        } else {
-            document.getElementById('loading').innerHTML = '<p style="color:#991b1b;">No case data found. Please use the verification link from your email.</p>';
         }
 
-        // Auto-compute SOL when date changes
-        document.getElementById('date_of_accident').addEventListener('change', computeSOL);
+        function showError(message) {
+            showState('error');
+            const msg = document.getElementById('statusMsg');
+            msg.className = 'status-msg error';
+            msg.style.display = 'block';
+            msg.innerHTML = '<strong>Error:</strong> ' + message + '<br><br><button class="btn btn-secondary" onclick="showState(\'upload\')">Try Again</button>';
+        }
 
+        // --- File Upload UI ---
+        function handleFileSelect(input) {
+            const area = document.getElementById('fileUploadArea');
+            const nameEl = document.getElementById('fileName');
+            if (input.files.length > 0) {
+                area.classList.add('has-file');
+                nameEl.textContent = input.files[0].name;
+                nameEl.style.display = 'block';
+            } else {
+                area.classList.remove('has-file');
+                nameEl.style.display = 'none';
+            }
+        }
+
+        // --- Step 1: Upload Handler ---
+        async function handleUpload(e) {
+            e.preventDefault();
+            const btn = document.getElementById('uploadBtn');
+            btn.disabled = true;
+            showState('processing');
+
+            const formData = new FormData();
+            formData.append('client_name', document.getElementById('upload_client_name').value.trim());
+            formData.append('matter_id', document.getElementById('upload_matter_id').value.trim());
+            formData.append('police_report', document.getElementById('upload_pdf').files[0]);
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error('Server returned ' + response.status);
+                const data = await response.json();
+                populateVerificationForm(data);
+                showState('verify');
+            } catch (err) {
+                btn.disabled = false;
+                showError('Upload failed: ' + err.message);
+            }
+        }
+
+        // --- Populate Verification Form ---
+        function populateVerificationForm(data) {
+            document.getElementById('resume_url').value = data.resumeUrl || '';
+            document.getElementById('case_id').value = data.case_id || '';
+            document.getElementById('displayCaseId').textContent = data.case_id || 'N/A';
+
+            document.getElementById('client_name').value = data.client_name || '';
+            document.getElementById('client_sex').value = data.client_sex || 'M';
+            document.getElementById('date_of_accident').value = data.date_of_accident || '';
+            document.getElementById('defendant_name').value = data.defendant_name || '';
+            document.getElementById('accident_location').value = data.accident_location || '';
+            document.getElementById('client_vehicle_plate').value = data.client_vehicle_plate || '';
+            document.getElementById('number_of_injured').value = data.number_of_injured || '0';
+            document.getElementById('accident_description').value = data.accident_description || '';
+            document.getElementById('matter_id').value = data.matter_id || '';
+            document.getElementById('confidence_score').value = data.confidence_score || '';
+
+            // Confidence badge with descriptive text
+            const score = parseInt(data.confidence_score) || 0;
+            const confEl = document.getElementById('displayConfidence');
+            if (score >= 8) {
+                confEl.textContent = score + '/10 - High confidence';
+                confEl.className = 'confidence high';
+            } else if (score >= 6) {
+                confEl.textContent = score + '/10 - Review carefully';
+                confEl.className = 'confidence medium';
+            } else {
+                confEl.textContent = score + '/10 - Low confidence, verify all fields';
+                confEl.className = 'confidence low';
+            }
+
+            // Confidence notes
+            const notesEl = document.getElementById('displayConfidenceNotes');
+            notesEl.textContent = data.confidence_notes || '';
+            notesEl.style.display = data.confidence_notes ? 'block' : 'none';
+
+            computeSOL();
+        }
+
+        // --- SOL Computation ---
         function computeSOL() {
             const dateStr = document.getElementById('date_of_accident').value;
             if (dateStr) {
@@ -185,6 +294,9 @@
             }
         }
 
+        document.getElementById('date_of_accident').addEventListener('change', computeSOL);
+
+        // --- Step 2: Submit Verification ---
         async function submitVerification(e) {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
@@ -198,7 +310,7 @@
                 date_of_accident: document.getElementById('date_of_accident').value,
                 defendant_name: document.getElementById('defendant_name').value,
                 accident_location: document.getElementById('accident_location').value,
-                registration_plate: document.getElementById('registration_plate').value,
+                client_vehicle_plate: document.getElementById('client_vehicle_plate').value,
                 number_of_injured: document.getElementById('number_of_injured').value,
                 accident_description: document.getElementById('accident_description').value,
                 sol_date: document.getElementById('sol_date').value,
@@ -235,6 +347,28 @@
                 btn.textContent = 'Verify & Submit to Clio';
             }
         }
+
+        // --- Page Init ---
+        (function init() {
+            const params = new URLSearchParams(window.location.search);
+            const encodedData = params.get('data');
+            const resumeUrlParam = params.get('resumeUrl');
+
+            if (encodedData && resumeUrlParam) {
+                // Backward compat: URL params from email link
+                try {
+                    const data = JSON.parse(atob(encodedData));
+                    data.resumeUrl = resumeUrlParam;
+                    populateVerificationForm(data);
+                    showState('verify');
+                } catch (e) {
+                    showError('Error parsing case data. Please check the link.');
+                }
+            } else {
+                // Default: show upload form
+                showState('upload');
+            }
+        })();
     </script>
 </body>
 </html>
