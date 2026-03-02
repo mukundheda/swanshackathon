@@ -201,7 +201,7 @@
             const msg = document.getElementById('statusMsg');
             msg.className = 'status-msg error';
             msg.style.display = 'block';
-            msg.innerHTML = '<strong>Error:</strong> ' + message + '<br><br><button class="btn btn-secondary" onclick="showState(\'upload\')">Try Again</button>';
+            msg.innerHTML = '<strong>Error:</strong> ' + message + '<br><br><button class="btn btn-secondary" onclick="resetForm()">Try Again</button>';
         }
 
         // --- File Upload UI ---
@@ -340,7 +340,7 @@
                     const msg = document.getElementById('statusMsg');
                     msg.className = 'status-msg success';
                     msg.style.display = 'block';
-                    msg.innerHTML = '<strong>Verification submitted successfully!</strong><br>The case data has been sent to Clio for processing. You can close this tab.';
+                    msg.innerHTML = '<strong>Verification submitted successfully!</strong><br>The case data has been sent to Clio for processing. The retainer agreement will be generated and emailed to the client automatically.<br><br><button class="btn btn-primary" onclick="resetForm()">Process Another Report</button>';
                 } else {
                     throw new Error('Server returned ' + resp.status);
                 }
@@ -352,6 +352,19 @@
                 btn.disabled = false;
                 btn.textContent = 'Verify & Submit to Clio';
             }
+        }
+
+        // --- Reset Form ---
+        function resetForm() {
+            document.getElementById('upload_client_name').value = '';
+            document.getElementById('upload_matter_id').value = '';
+            document.getElementById('upload_pdf').value = '';
+            document.getElementById('fileUploadArea').classList.remove('has-file');
+            document.getElementById('fileName').style.display = 'none';
+            document.getElementById('uploadBtn').disabled = false;
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('submitBtn').textContent = 'Verify & Submit to Clio';
+            showState('upload');
         }
 
         // --- Page Init ---
