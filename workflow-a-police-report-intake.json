@@ -1,0 +1,428 @@
+{
+  "updatedAt": "2026-03-02T07:14:28.222Z",
+  "createdAt": "2026-03-01T12:47:01.677Z",
+  "id": "4WV6BMqb7sUFghoW",
+  "name": "RL - Police Report Intake",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg1",
+              "name": "CLIO_API_BASE",
+              "value": "https://app.clio.com/api/v4",
+              "type": "string"
+            },
+            {
+              "id": "cfg2",
+              "name": "VERIFY_PAGE_URL",
+              "value": "https://swanshackathon.vercel.app",
+              "type": "string"
+            },
+            {
+              "id": "cfg3",
+              "name": "PARALEGAL_EMAIL",
+              "value": "mukund@augmentloop.com",
+              "type": "string"
+            },
+            {
+              "id": "cfg4",
+              "name": "WORKFLOW_B_ID",
+              "value": "3NUwqSxkpFg7RhBP",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a0",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        256,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body;\nconst name = (body.client_name || '').trim();\nconst matter_id = (body.matter_id || '').trim();\nconst binaryKeys = Object.keys($binary || {});\n\nif (!name) throw new Error('Client name is required');\nif (!matter_id) throw new Error('Matter ID is required');\nif (binaryKeys.length === 0) throw new Error('No PDF file uploaded');\n\nreturn {\n  json: {\n    client_name: name,\n    matter_id: matter_id,\n    case_id: 'RL-' + Date.now(),\n    binary_key: binaryKeys[0],\n    CLIO_API_BASE: $json.CLIO_API_BASE,\n    VERIFY_PAGE_URL: $json.VERIFY_PAGE_URL,\n    PARALEGAL_EMAIL: $json.PARALEGAL_EMAIL,\n    WORKFLOW_B_ID: $json.WORKFLOW_B_ID\n  },\n  binary: $binary\n};"
+      },
+      "id": "a2",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 1500,\n  \"system\": \"You are a legal data extraction specialist. Return ONLY valid JSON, no markdown fencing. Dates in YYYY-MM-DD format. null for absent fields.\",\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": [\n      {\n        \"type\": \"document\",\n        \"source\": { \"type\": \"base64\", \"media_type\": \"application/pdf\", \"data\": \"{{ $json.data }}\" }\n      },\n      {\n        \"type\": \"text\",\n        \"text\": \"Extract these fields from this police report as JSON: client_name (LASTNAME, FIRSTNAME format), date_of_accident (YYYY-MM-DD), defendant_name (LASTNAME, FIRSTNAME format), accident_location (full location with cross streets, county, borough, state), client_vehicle_plate (license plate number and state, null if pedestrian/cyclist), number_of_injured (integer), accident_description (2-3 sentences, third person, factual), client_sex (M or F), confidence_score (1-10 how confident you are in the extraction), confidence_notes (brief note on any unclear fields)\"\n      }\n    ]\n  }]\n}",
+        "options": {}
+      },
+      "id": "a4",
+      "name": "Claude PDF Extraction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1008,
+        304
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Z3btk7QlsbkWIAAF",
+          "name": "anthropicApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "let raw = $json.content[0].text;\nraw = raw.replace(/^```json?\\s*/i, '').replace(/\\s*```$/i, '').trim();\nconst extracted = JSON.parse(raw);\nconst accDate = new Date(extracted.date_of_accident);\nconst solDate = new Date(accDate);\nsolDate.setFullYear(solDate.getFullYear() + 8);\nconst sol_date = solDate.toISOString().split('T')[0];\nconst config = $('Config').item.json;\nconst input = $('Validate Input').item.json;\nreturn {\n  ...extracted,\n  sol_date: sol_date,\n  matter_id: input.matter_id,\n  case_id: input.case_id,\n  CLIO_API_BASE: config.CLIO_API_BASE,\n  VERIFY_PAGE_URL: config.VERIFY_PAGE_URL,\n  PARALEGAL_EMAIL: config.PARALEGAL_EMAIL,\n  WORKFLOW_B_ID: config.WORKFLOW_B_ID\n};"
+      },
+      "id": "a5",
+      "name": "Parse and Compute SOL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "options": {}
+      },
+      "id": "a9",
+      "name": "Wait for Verification",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2256,
+        304
+      ],
+      "webhookId": "175ec22b-c7cb-4fc6-a795-0285d556eb1a"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const verified = $json;\nconst accDate = new Date(verified.date_of_accident);\nconst solDate = new Date(accDate);\nsolDate.setFullYear(solDate.getFullYear() + 8);\nconst sol_date = solDate.toISOString().split('T')[0];\nconst sex = (verified.client_sex || 'M').trim().toUpperCase();\nconst pronoun_possessive = sex === 'F' ? 'her' : 'his';\nconst pronoun_subject = sex === 'F' ? 'she' : 'he';\nconst pronoun_object = sex === 'F' ? 'her' : 'him';\nconst matter_id = $('Validate Input').item.json.matter_id;\nconst case_id = $('Validate Input').item.json.case_id;\nconst config = $('Config').item.json;\nreturn {\n  ...verified,\n  sol_date: sol_date,\n  matter_id: matter_id,\n  case_id: case_id,\n  pronoun_possessive: pronoun_possessive,\n  pronoun_subject: pronoun_subject,\n  pronoun_object: pronoun_object,\n  CLIO_API_BASE: config.CLIO_API_BASE,\n  WORKFLOW_B_ID: config.WORKFLOW_B_ID\n};"
+      },
+      "id": "a10",
+      "name": "Merge Verified Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $json.WORKFLOW_B_ID }}",
+        "options": {}
+      },
+      "id": "a11",
+      "name": "Execute Workflow B",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2752,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "police-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "bd942f8e-9537-4aac-8c41-c90b34ccd40a",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        304
+      ],
+      "webhookId": "76e6566c-eda7-48c5-9342-a021ffce8810",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "client_name",
+              "value": "={{ $json.client_name }}",
+              "type": "string"
+            },
+            {
+              "id": "r2",
+              "name": "date_of_accident",
+              "value": "={{ $json.date_of_accident }}",
+              "type": "string"
+            },
+            {
+              "id": "r3",
+              "name": "defendant_name",
+              "value": "={{ $json.defendant_name }}",
+              "type": "string"
+            },
+            {
+              "id": "r4",
+              "name": "accident_location",
+              "value": "={{ $json.accident_location }}",
+              "type": "string"
+            },
+            {
+              "id": "r5",
+              "name": "client_vehicle_plate",
+              "value": "={{ $json.client_vehicle_plate }}",
+              "type": "string"
+            },
+            {
+              "id": "r6",
+              "name": "number_of_injured",
+              "value": "={{ $json.number_of_injured }}",
+              "type": "number"
+            },
+            {
+              "id": "r7",
+              "name": "accident_description",
+              "value": "={{ $json.accident_description }}",
+              "type": "string"
+            },
+            {
+              "id": "r8",
+              "name": "client_sex",
+              "value": "={{ $json.client_sex }}",
+              "type": "string"
+            },
+            {
+              "id": "r9",
+              "name": "confidence_score",
+              "value": "={{ $json.confidence_score }}",
+              "type": "number"
+            },
+            {
+              "id": "r10",
+              "name": "confidence_notes",
+              "value": "={{ $json.confidence_notes }}",
+              "type": "string"
+            },
+            {
+              "id": "r11",
+              "name": "sol_date",
+              "value": "={{ $json.sol_date }}",
+              "type": "string"
+            },
+            {
+              "id": "r12",
+              "name": "case_id",
+              "value": "={{ $json.case_id }}",
+              "type": "string"
+            },
+            {
+              "id": "r13",
+              "name": "matter_id",
+              "value": "={{ $('Validate Input').item.json.matter_id }}",
+              "type": "string"
+            },
+            {
+              "id": "r14",
+              "name": "resumeUrl",
+              "value": "/api/webhook/police-verify",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "c68a5b87-1c63-4912-8b9a-05b6190516f1",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "0deb4b96-34d7-4259-9e72-5b7fec3dcaee",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1760,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "binaryPropertyName": "police_report",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        304
+      ],
+      "id": "36ed3361-b913-404f-97f7-71d347176cbd",
+      "name": "Extract from File"
+    }
+  ],
+  "connections": {
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude PDF Extraction": {
+      "main": [
+        [
+          {
+            "node": "Parse and Compute SOL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Verification": {
+      "main": [
+        [
+          {
+            "node": "Merge Verified Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Verified Data": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Compute SOL": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Claude PDF Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "triggerCount": 1,
+  "tags": []
+}
